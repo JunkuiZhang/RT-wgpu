@@ -4,8 +4,10 @@ use crate::controler::Controler;
 
 mod settings;
 mod controler;
+mod entity;
 
 fn main() {
+    env_logger::init();
     let event_loop = winit::event_loop::EventLoop::new();
     let window = winit::window::WindowBuilder::new()
         .with_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize {
