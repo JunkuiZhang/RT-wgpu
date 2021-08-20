@@ -2,9 +2,10 @@ use settings::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDHT};
 
 use crate::controler::Controler;
 
-mod settings;
 mod controler;
 mod entity;
+mod settings;
+mod systems;
 
 fn main() {
     env_logger::init();
@@ -18,7 +19,6 @@ fn main() {
         .build(&event_loop)
         .unwrap();
     let mut controler = pollster::block_on(Controler::new(&window));
-
     event_loop.run(move |event, _, control_flow| match event {
         winit::event::Event::WindowEvent { event, .. } => match event {
             winit::event::WindowEvent::CloseRequested => {
@@ -32,17 +32,26 @@ fn main() {
                 } => {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
+                winit::event::KeyboardInput {
+                    state: winit::event::ElementState::Pressed,
+                    virtual_keycode: Some(winit::event::VirtualKeyCode::Space),
+                    ..
+                } => {
+                    println!("Request redraw.");
+                    controler.update();
+                    window.request_redraw();
+                }
                 _ => {}
             },
             _ => {}
         },
         winit::event::Event::RedrawRequested(_) => {
             controler.render();
-        },
+        }
         winit::event::Event::RedrawEventsCleared => {
-            controler.update();
-            window.request_redraw();
-        },
+            // controler.update();
+            // window.request_redraw();
+        }
         _ => {}
     });
 }
