@@ -1,6 +1,6 @@
-use settings::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDHT};
+use std::time::Instant;
 
-use crate::controler::Controler;
+use settings::{WINDOW_HEIGHT, WINDOW_TITLE, WINDOW_WIDHT};
 
 mod controler;
 mod entity;
@@ -18,7 +18,7 @@ fn main() {
         .with_title(WINDOW_TITLE)
         .build(&event_loop)
         .unwrap();
-    let mut controler = pollster::block_on(Controler::new(&window));
+    let mut controler = pollster::block_on(controler::Controler::new(&window));
     event_loop.run(move |event, _, control_flow| match event {
         winit::event::Event::WindowEvent { event, .. } => match event {
             winit::event::WindowEvent::CloseRequested => {
@@ -46,7 +46,9 @@ fn main() {
             _ => {}
         },
         winit::event::Event::RedrawRequested(_) => {
+            let start = Instant::now();
             controler.render();
+            println!("Total time: {}", start.elapsed().as_millis());
         }
         winit::event::Event::RedrawEventsCleared => {
             // controler.update();
