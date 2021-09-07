@@ -5,19 +5,13 @@ use super::Panel;
 impl Panel {
     pub fn new(point0: [f32; 3], point1: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
         let mut points = [0.0f32; 8];
-        for i in 0..3 {
-            points[i] = point0[i];
-        }
+        points[..3].clone_from_slice(&point0[..]);
         points[3] = 1.0;
-        for i in 0..3 {
-            points[4 + i] = point1[i];
-        }
+        points[4..7].clone_from_slice(&point1[..]);
         points[7] = 1.0;
 
         let mut p_normal = [0.0f32; 4];
-        for i in 0..3 {
-            p_normal[i] = normal[i];
-        }
+        p_normal[..3].clone_from_slice(&normal[..]);
         p_normal[3] = 0.0;
 
         Panel {

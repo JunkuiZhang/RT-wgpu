@@ -1,12 +1,10 @@
-use std::time::Instant;
-
 use wgpu::{util::DeviceExt, vertex_attr_array};
 
 use crate::{
     entity::{Panel, Sphere},
     settings::{
-        IMAGE_PATH, SAMPLES_PER_PIXEL, TEXTURE_HEIGHT, TEXTURE_WIDTH, WINDOW_HEIGHT,
-        WINDOW_TOTAL_PIXEL, WINDOW_WIDHT,
+        SAMPLES_PER_PIXEL, TEXTURE_HEIGHT, TEXTURE_WIDTH, WINDOW_HEIGHT, WINDOW_TOTAL_PIXEL,
+        WINDOW_WIDHT,
     },
     systems::generator::{
         generate_input_data, generate_lights_scene, generate_panel_scene, generate_sphere_scene,
@@ -20,7 +18,7 @@ pub struct Controler {
     cell_render_bind_group: wgpu::BindGroup,
     cell_render_buffer: wgpu::Buffer,
     cell_render_pipeline: wgpu::RenderPipeline,
-    entity_buffers: Vec<wgpu::Buffer>,
+    // entity_buffers: Vec<wgpu::Buffer>,
     input_buffer: wgpu::Buffer,
     result_buffer: wgpu::Buffer,
     // source_texture: wgpu::Texture,
@@ -262,44 +260,40 @@ impl Controler {
         // });
 
         let sphere_buffer_data = generate_sphere_scene();
-        let mut entity_buffers = vec![];
-        entity_buffers.push(
+        let panel_buffer_data = generate_panel_scene();
+        let light_buffer_data = generate_lights_scene();
+        let entity_buffers = vec![
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: None,
                 contents: bytemuck::cast_slice(&sphere_buffer_data),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_SRC,
             }),
-        );
-        let panel_buffer_data = generate_panel_scene();
-        entity_buffers.push(
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: None,
                 contents: bytemuck::cast_slice(&panel_buffer_data),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_SRC,
             }),
-        );
-        let light_buffer_data = generate_lights_scene();
-        entity_buffers.push(
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: None,
                 contents: bytemuck::cast_slice(&light_buffer_data),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_SRC,
             }),
-        );
-        let mut config_buffer_data = vec![];
-        config_buffer_data.push(0u32);
-        config_buffer_data.push(WINDOW_WIDHT);
-        config_buffer_data.push(WINDOW_HEIGHT);
-        config_buffer_data.push(SAMPLES_PER_PIXEL as u32);
-        config_buffer_data.push(sphere_buffer_data.len() as u32);
-        config_buffer_data.push(panel_buffer_data.len() as u32);
-        config_buffer_data.push(light_buffer_data.len() as u32);
-        config_buffer_data.push(0u32);
+        ];
+
+        let config_buffer_data = vec![
+            0u32,
+            WINDOW_WIDHT,
+            WINDOW_HEIGHT,
+            SAMPLES_PER_PIXEL as u32,
+            sphere_buffer_data.len() as u32,
+            panel_buffer_data.len() as u32,
+            light_buffer_data.len() as u32,
+            0u32,
+        ];
         let config_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&config_buffer_data),
-            usage: wgpu::BufferUsages::COPY_SRC
-                | wgpu::BufferUsages::STORAGE,
+            usage: wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::STORAGE,
         });
 
         let input_buffer_data = generate_input_data();
@@ -479,7 +473,7 @@ impl Controler {
             cell_render_bind_group,
             cell_render_buffer,
             cell_render_pipeline,
-            entity_buffers,
+            // entity_buffers,
             input_buffer,
             result_buffer,
             // source_texture,
@@ -494,8 +488,14 @@ impl Controler {
     pub fn update(&mut self) {}
 
     pub fn render(&mut self) {
-        let surface_frame = self.surface.get_current_frame().expect("Error get current frame");
-        let view = surface_frame.output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let surface_frame = self
+            .surface
+            .get_current_frame()
+            .expect("Error get current frame");
+        let view = surface_frame
+            .output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -511,7 +511,6 @@ impl Controler {
             compute_pass.set_bind_group(1, &self.compute_bindgroup1, &[]);
             compute_pass.dispatch(self.work_group_count, 1, 1);
         }
-        let compute_end = Instant::now();
 
         // encoder.copy_buffer_to_texture(
         //     wgpu::ImageCopyBuffer {

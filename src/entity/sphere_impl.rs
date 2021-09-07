@@ -5,9 +5,7 @@ use super::Sphere;
 impl Sphere {
     pub fn new(pos: [f32; 3], color: [f32; 3], radius: f32) -> Self {
         let mut position = [0.0f32; 4];
-        for i in 0..3 {
-            position[i] = pos[i];
-        }
+        position[..3].clone_from_slice(&pos[..]);
         position[3] = 1.0;
 
         Sphere {
