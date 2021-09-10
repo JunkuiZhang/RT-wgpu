@@ -7,7 +7,8 @@ use crate::{
         WINDOW_WIDHT,
     },
     systems::generator::{
-        generate_input_data, generate_lights_scene, generate_panel_scene, generate_sphere_scene,
+        generate_clip_rect, generate_input_data, generate_lights_scene, generate_panel_scene,
+        generate_sphere_scene,
     },
 };
 
@@ -15,28 +16,29 @@ pub struct Controler {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface,
+    surface_format: wgpu::TextureFormat,
     cell_render_bind_group: wgpu::BindGroup,
     cell_render_buffer: wgpu::Buffer,
     cell_render_pipeline: wgpu::RenderPipeline,
     // entity_buffers: Vec<wgpu::Buffer>,
     input_buffer: wgpu::Buffer,
     result_buffer: wgpu::Buffer,
-    // source_texture: wgpu::Texture,
+    source_texture: wgpu::Texture,
     compute_pipeline: wgpu::ComputePipeline,
     compute_bindgroup0: wgpu::BindGroup,
     compute_bindgroup1: wgpu::BindGroup,
     work_group_count: u32,
-    // clip_rect: (u32, u32, u32, u32),
+    clip_rect: (u32, u32, u32, u32),
 }
 
 impl Controler {
     pub async fn new(window: &winit::window::Window) -> Self {
-        // let clip_rect = (0u32, 0u32, WINDOW_WIDHT, WINDOW_HEIGHT);
+        let clip_rect = generate_clip_rect();
         let instance = wgpu::Instance::new(wgpu::Backends::METAL);
         let surface = unsafe { instance.create_surface(window) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::LowPower,
+                power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: Some(&surface),
             })
             .await
@@ -52,9 +54,10 @@ impl Controler {
             )
             .await
             .unwrap();
+        let surface_format = surface.get_preferred_format(&adapter).unwrap();
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
+            format: surface_format,
             width: WINDOW_WIDHT,
             height: WINDOW_HEIGHT,
             present_mode: wgpu::PresentMode::Fifo,
@@ -71,193 +74,125 @@ impl Controler {
                 label: Some("Render-Shader"),
                 source: wgpu::ShaderSource::Wgsl(include_str!("base-render-shader.wgsl").into()),
             });
-        // let source_texture = device.create_texture(&wgpu::TextureDescriptor {
-        //     label: None,
-        //     size: wgpu::Extent3d {
-        //         width: TEXTURE_WIDTH,
-        //         height: TEXTURE_HEIGHT,
-        //         // width: WINDOW_WIDHT,
-        //         // height: WINDOW_HEIGHT,
-        //         depth_or_array_layers: 1,
-        //     },
-        //     mip_level_count: 1,
-        //     sample_count: 1,
-        //     dimension: wgpu::TextureDimension::D2,
-        //     format: wgpu::TextureFormat::Rgba8UnormSrgb,
-        //     usage: wgpu::TextureUsage::COPY_DST | wgpu::TextureUsage::SAMPLED,
-        // });
-        // let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        //     label: None,
-        //     address_mode_u: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_v: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_w: wgpu::AddressMode::ClampToEdge,
-        //     mag_filter: wgpu::FilterMode::Nearest,
-        //     min_filter: wgpu::FilterMode::Nearest,
-        //     mipmap_filter: wgpu::FilterMode::Nearest,
-        //     lod_min_clamp: 0.0,
-        //     lod_max_clamp: 1.0,
-        //     compare: None,
-        //     anisotropy_clamp: None,
-        //     border_color: None,
-        // });
-        let cell_width = 2.0 / (TEXTURE_WIDTH as f32);
-        let cell_height = 2.0 / (TEXTURE_HEIGHT as f32);
-        let cell_buffer_data: [[f32; 2]; 6] = [
-            [0.0, 0.0],
-            [0.0, -cell_height],
-            [cell_width, -cell_height],
-            [0.0, 0.0],
-            [cell_width, -cell_height],
-            [cell_width, 0.0],
+        let source_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size: wgpu::Extent3d {
+                width: TEXTURE_WIDTH,
+                height: TEXTURE_HEIGHT,
+                // width: WINDOW_WIDHT,
+                // height: WINDOW_HEIGHT,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: surface_format,
+            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+        });
+        let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: None,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 1.0,
+            compare: None,
+            anisotropy_clamp: None,
+            border_color: None,
+        });
+
+        let cell_buffer_data: [[[f32; 2]; 2]; 3] = [
+            // One full-screen triangle
+            // See: https://github.com/parasyte/pixels/issues/180
+            [[-1.0, -1.0], [0.0, 0.0]],
+            [[3.0, -1.0], [2.0, 0.0]],
+            [[-1.0, 3.0], [0.0, 2.0]],
         ];
-        // let cell_buffer_data: [[[f32; 2]; 2]; 3] = [
-        //     // One full-screen triangle
-        //     // See: https://github.com/parasyte/pixels/issues/180
-        //     [[-1.0, -1.0], [0.0, 0.0]],
-        //     [[3.0, -1.0], [2.0, 0.0]],
-        //     [[-1.0, 3.0], [0.0, 2.0]],
-        // ];
-        let cell_uniform_buffer_data = [cell_width, cell_height];
-        let cell_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&cell_uniform_buffer_data),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_SRC,
-        });
-        let cell_render_bindgroup_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: None,
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(
-                            std::num::NonZeroU64::new(2 * std::mem::size_of::<f32>() as u64)
-                                .unwrap(),
-                        ),
-                    },
-                    count: None,
-                }],
-            });
-        let cell_render_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &cell_render_bindgroup_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: cell_uniform_buffer.as_entire_binding(),
-            }],
-        });
-        // let cell_render_bindgroup_layout =
-        //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        //         label: None,
-        //         entries: &[
-        //             wgpu::BindGroupLayoutEntry {
-        //                 binding: 0,
-        //                 visibility: wgpu::ShaderStage::FRAGMENT,
-        //                 ty: wgpu::BindingType::Texture {
-        //                     sample_type: wgpu::TextureSampleType::Float { filterable: true },
-        //                     multisampled: false,
-        //                     view_dimension: wgpu::TextureViewDimension::D2,
-        //                 },
-        //                 count: None,
-        //             },
-        //             wgpu::BindGroupLayoutEntry {
-        //                 binding: 1,
-        //                 visibility: wgpu::ShaderStage::FRAGMENT,
-        //                 ty: wgpu::BindingType::Sampler {
-        //                     filtering: true,
-        //                     comparison: false,
-        //                 },
-        //                 count: None,
-        //             },
-        //         ],
-        //     });
-        // let cell_render_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     label: None,
-        //     layout: &cell_render_bindgroup_layout,
-        //     entries: &[
-        //         wgpu::BindGroupEntry {
-        //             binding: 0,
-        //             resource: wgpu::BindingResource::TextureView(
-        //                 &source_texture.create_view(&wgpu::TextureViewDescriptor::default()),
-        //             ),
-        //         },
-        //         wgpu::BindGroupEntry {
-        //             binding: 1,
-        //             resource: wgpu::BindingResource::Sampler(&texture_sampler),
-        //         },
-        //     ],
-        // });
+        let cell_buffer_data_slice = bytemuck::cast_slice(&cell_buffer_data);
+
         let cell_render_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Base-Render-Buffer"),
-            contents: bytemuck::cast_slice(&cell_buffer_data),
+            contents: cell_buffer_data_slice,
             usage: wgpu::BufferUsages::VERTEX,
         });
+
+        let cell_render_buffer_layout = wgpu::VertexBufferLayout {
+            array_stride: (cell_buffer_data_slice.len() / cell_buffer_data.len()) as u64,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &vertex_attr_array![0=>Float32x2, 1=>Float32x2],
+        };
+        let cell_render_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Render-Bindgroup-Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler {
+                            filtering: true,
+                            comparison: false,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+        let source_texture_view =
+            source_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let cell_render_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Render-Bindgroup"),
+            layout: &cell_render_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&source_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture_sampler),
+                },
+            ],
+        });
+
         let cell_render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: None,
-                bind_group_layouts: &[&cell_render_bindgroup_layout],
+                label: Some("Render-Pipeline-Layout"),
+                bind_group_layouts: &[&cell_render_bind_group_layout],
                 push_constant_ranges: &[],
             });
         let cell_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Cell-Render-Pipeline"),
+            label: Some("Render-Pipeline"),
             layout: Some(&cell_render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &base_render_shader_module,
                 entry_point: "base_main",
-                buffers: &[
-                    wgpu::VertexBufferLayout {
-                        array_stride: 2 * 4,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &vertex_attr_array![0=>Float32x2],
-                    },
-                    wgpu::VertexBufferLayout {
-                        array_stride: 2 * 4,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &vertex_attr_array![1=>Float32x2],
-                    },
-                    wgpu::VertexBufferLayout {
-                        array_stride: 3 * 4,
-                        step_mode: wgpu::VertexStepMode::Instance,
-                        attributes: &vertex_attr_array![2=>Float32x3],
-                    },
-                ],
+                buffers: &[cell_render_buffer_layout],
             },
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
+            multisample: wgpu::MultisampleState::default(),
             fragment: Some(wgpu::FragmentState {
                 module: &base_render_shader_module,
                 entry_point: "base_main",
-                targets: &[surface.get_preferred_format(&adapter).unwrap().into()],
+                targets: &[wgpu::ColorTargetState {
+                    format: surface_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                }],
             }),
         });
-        // let cell_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        //     label: Some("Cell-Render-Pipeline"),
-        //     layout: Some(&cell_render_pipeline_layout),
-        //     vertex: wgpu::VertexState {
-        //         module: &base_render_shader_module,
-        //         entry_point: "base_main",
-        //         buffers: &[wgpu::VertexBufferLayout {
-        //             array_stride: 4 * 4,
-        //             step_mode: wgpu::InputStepMode::Vertex,
-        //             attributes: &vertex_attr_array![0=>Float32x2, 1=>Float32x2],
-        //         }],
-        //     },
-        //     primitive: wgpu::PrimitiveState::default(),
-        //     depth_stencil: None,
-        //     multisample: wgpu::MultisampleState::default(),
-        //     fragment: Some(wgpu::FragmentState {
-        //         module: &base_render_shader_module,
-        //         entry_point: "base_main",
-        //         targets: &[sc_desc.format.into()],
-        //     }),
-        // });
 
         let sphere_buffer_data = generate_sphere_scene();
         let panel_buffer_data = generate_panel_scene();
@@ -305,8 +240,7 @@ impl Controler {
                 | wgpu::BufferUsages::VERTEX,
         });
 
-        let result_buffer_data = vec![0.0f32; (WINDOW_TOTAL_PIXEL * 3) as usize];
-        // let result_buffer_data = vec![0u8; (WINDOW_TOTAL_PIXEL * 4) as usize];
+        let result_buffer_data = vec![0u8; (WINDOW_TOTAL_PIXEL * 4) as usize]; // bgra8usnormsRGB
         let result_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Res-Buffer"),
             contents: bytemuck::cast_slice(&result_buffer_data),
@@ -339,8 +273,7 @@ impl Controler {
                             ty: wgpu::BufferBindingType::Storage { read_only: false },
                             has_dynamic_offset: false,
                             min_binding_size: Some(
-                                std::num::NonZeroU64::new(WINDOW_TOTAL_PIXEL * 3 * 4).unwrap(),
-                                // std::num::NonZeroU64::new(WINDOW_TOTAL_PIXEL * 4 * 1).unwrap(),
+                                std::num::NonZeroU64::new(WINDOW_TOTAL_PIXEL * 4 * 1).unwrap(),
                             ),
                         },
                         count: None,
@@ -470,22 +403,25 @@ impl Controler {
             device,
             queue,
             surface,
+            surface_format,
             cell_render_bind_group,
             cell_render_buffer,
             cell_render_pipeline,
             // entity_buffers,
             input_buffer,
             result_buffer,
-            // source_texture,
+            source_texture,
             compute_pipeline,
             compute_bindgroup0,
             compute_bindgroup1,
             work_group_count,
-            // clip_rect,
+            clip_rect,
         }
     }
 
-    pub fn update(&mut self) {}
+    pub fn update(&mut self) {
+        println!("{:?}", self.surface_format);
+    }
 
     pub fn render(&mut self) {
         let surface_frame = self
@@ -496,6 +432,7 @@ impl Controler {
             .output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -512,27 +449,41 @@ impl Controler {
             compute_pass.dispatch(self.work_group_count, 1, 1);
         }
 
-        // encoder.copy_buffer_to_texture(
-        //     wgpu::ImageCopyBuffer {
-        //         buffer: &self.result_buffer,
-        //         layout: wgpu::ImageDataLayout {
-        //             offset: 0,
-        //             bytes_per_row: std::num::NonZeroU32::new(4 * TEXTURE_WIDTH),
-        //             rows_per_image: std::num::NonZeroU32::new(TEXTURE_HEIGHT),
-        //         },
-        //     },
-        //     wgpu::ImageCopyTexture {
-        //         texture: &self.source_texture,
-        //         mip_level: 1,
-        //         origin: wgpu::Origin3d::ZERO,
-        //     },
-        //     wgpu::Extent3d {
-        //         width: TEXTURE_WIDTH / 2,
-        //         height: TEXTURE_HEIGHT / 2,
-        //         depth_or_array_layers: 1,
-        //     },
-        // );
+        self.queue.submit(Some(encoder.finish()));
 
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Buffer-Copy-Encoder"),
+            });
+        encoder.copy_buffer_to_texture(
+            wgpu::ImageCopyBuffer {
+                buffer: &self.result_buffer,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: std::num::NonZeroU32::new(4 * TEXTURE_WIDTH),
+                    rows_per_image: std::num::NonZeroU32::new(TEXTURE_HEIGHT),
+                },
+            },
+            wgpu::ImageCopyTexture {
+                texture: &self.source_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::Extent3d {
+                width: TEXTURE_WIDTH,
+                height: TEXTURE_HEIGHT,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.queue.submit(Some(encoder.finish()));
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render-Encoder"),
+            });
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render-Pass"),
@@ -550,17 +501,14 @@ impl Controler {
             render_pass.set_pipeline(&self.cell_render_pipeline);
             render_pass.set_bind_group(0, &self.cell_render_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.cell_render_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.input_buffer.slice(..));
-            render_pass.set_vertex_buffer(2, self.result_buffer.slice(..));
-            render_pass.draw(0..6, 0..WINDOW_TOTAL_PIXEL as u32);
-            // render_pass.set_scissor_rect(
-            //     self.clip_rect.0,
-            //     self.clip_rect.1,
-            //     self.clip_rect.2,
-            //     self.clip_rect.3,
-            // );
+            render_pass.draw(0..3, 0..1);
+            render_pass.set_scissor_rect(
+                self.clip_rect.0,
+                self.clip_rect.1,
+                self.clip_rect.2,
+                self.clip_rect.3,
+            );
         }
-
         self.queue.submit(Some(encoder.finish()));
     }
 }

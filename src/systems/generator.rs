@@ -1,6 +1,6 @@
 use crate::{
     entity::{Panel, Sphere},
-    settings::{TEXTURE_HEIGHT, TEXTURE_WIDTH, WINDOW_TOTAL_PIXEL},
+    settings::{TEXTURE_HEIGHT, TEXTURE_WIDTH, WINDOW_HEIGHT, WINDOW_TOTAL_PIXEL, WINDOW_WIDHT},
 };
 
 pub fn generate_sphere_scene() -> Vec<Sphere> {
@@ -71,4 +71,22 @@ pub fn generate_input_data() -> Vec<f32> {
     }
 
     result
+}
+
+pub fn generate_clip_rect() -> (u32, u32, u32, u32) {
+    let scale = (WINDOW_WIDHT as f32 / TEXTURE_WIDTH as f32)
+        .min(WINDOW_HEIGHT as f32 / TEXTURE_HEIGHT as f32)
+        .max(1.0)
+        .floor();
+    let scaled_width = TEXTURE_WIDTH as f32 * scale;
+    let scaled_height = TEXTURE_HEIGHT as f32 * scale;
+    let x = (WINDOW_WIDHT as f32 - scaled_width) / 2.0;
+    let y = (WINDOW_HEIGHT as f32 - scaled_height) / 2.0;
+
+    (
+        x as u32,
+        y as u32,
+        scaled_width as u32,
+        scaled_height as u32,
+    )
 }

@@ -21,17 +21,9 @@ struct InputBuffer {
     data: [[stride(8)]] array<PixelData>;
 };
 
-struct PixelColor {
-    r: f32;
-    g: f32;
-    b: f32;
-    // data: u32;
-};
-
 [[block]]
 struct ResultBuffer {
-    data: [[stride(12)]] array<PixelColor>;
-    // data: [[stride(4)]] array<PixelColor>;
+    data: [[stride(32)]] array<u32>;
 };
 
 [[group(0), binding(0)]]
@@ -646,7 +638,7 @@ fn main([[builtin(global_invocation_id)]] gi_id: vec3<u32>) {
     let spp: i32 = i32(config_data.spp);
     let screen_pos = input_list.data[entity_index].col_row;
     loop {
-        if (n >= spp) {
+        if (n >= 10) {
             out_color = out_color / f32(n);
             break;
         }
@@ -664,20 +656,17 @@ fn main([[builtin(global_invocation_id)]] gi_id: vec3<u32>) {
         rng_state = hit_array_data.rng_state;
         res_albedo = shade_point_array(hit_array_data);
         
+        // out_color = res_albedo;
         continuing {
             n = n + 1;
             out_color = out_color + res_albedo;
         }
     }
     
-    var res_color: PixelColor;
-    // let r: f32 = clamp(sqrt(out_color.x), 0.0, 1.0) * 255.0;
-    // let g: f32 = clamp(sqrt(out_color.y), 0.0, 1.0) * 255.0;
-    // let b: f32 = clamp(sqrt(out_color.z), 0.0, 1.0) * 255.0;
-    res_color.r = out_color.x;
-    res_color.g = out_color.y;
-    res_color.b = out_color.z;
-    // let res_data: u32 = u32(exp2(24.0) * r) + u32(exp2(16.0) * g) + u32(exp2(8.0) * b) + 255u;
+    let r: f32 = clamp(sqrt(out_color.x), 0.0, 1.0) * 255.0;
+    let g: f32 = clamp(sqrt(out_color.y), 0.0, 1.0) * 255.0;
+    let b: f32 = clamp(sqrt(out_color.z), 0.0, 1.0) * 255.0;
+    let res_color_temp: vec4<u32> = vec4<u32>(u32(b), u32(g), u32(r), 1u);
+    let res_color: u32 = res_color_temp.x | res_color_temp.y << 8u | res_color_temp.z << 16u | res_color_temp.w << 24u;
     output_list.data[entity_index] = res_color;
-    // output_list.data[entity_index].data = res_data;
 }

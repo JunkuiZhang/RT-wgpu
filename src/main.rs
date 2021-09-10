@@ -48,6 +48,7 @@ fn main() {
         winit::event::Event::RedrawRequested(_) => {
             let start = Instant::now();
             controler.render();
+            // controler.update();
             println!("Total time: {}", start.elapsed().as_millis());
         }
         winit::event::Event::RedrawEventsCleared => {
