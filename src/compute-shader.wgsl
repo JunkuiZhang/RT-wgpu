@@ -637,11 +637,11 @@ fn main([[builtin(global_invocation_id)]] gi_id: vec3<u32>) {
     var n: i32 = 0;
     let spp: i32 = i32(config_data.spp);
     let screen_pos = input_list.data[entity_index].col_row;
-    loop {
-        if (n >= 10) {
-            out_color = out_color / f32(n);
-            break;
-        }
+    // loop {
+    //     if (n >= 10) {
+    //         out_color = out_color / f32(n);
+    //         break;
+    //     }
 
         var res_albedo: vec3<f32>;
         var ray_origin: vec4<f32> = camera_pos;
@@ -654,19 +654,20 @@ fn main([[builtin(global_invocation_id)]] gi_id: vec3<u32>) {
         var ray_direction: vec4<f32> = normalize(vec4<f32>(x, y, 0.0, 1.0) - vec4<f32>(0.0, 0.0, 800.0, 1.0));
         let hit_array_data = generate_hit_info_array(ray_origin, ray_direction, rng_state);
         rng_state = hit_array_data.rng_state;
-        res_albedo = shade_point_array(hit_array_data);
+        // res_albedo = shade_point_array(hit_array_data);
+        out_color = shade_point_array(hit_array_data);
         
-        // out_color = res_albedo;
-        continuing {
-            n = n + 1;
-            out_color = out_color + res_albedo;
-        }
-    }
+    //     continuing {
+    //         n = n + 1;
+    //         out_color = out_color + res_albedo;
+    //     }
+    // }
     
     let r: f32 = clamp(sqrt(out_color.x), 0.0, 1.0) * 255.0;
     let g: f32 = clamp(sqrt(out_color.y), 0.0, 1.0) * 255.0;
     let b: f32 = clamp(sqrt(out_color.z), 0.0, 1.0) * 255.0;
     let res_color_temp: vec4<u32> = vec4<u32>(u32(b), u32(g), u32(r), 1u);
-    let res_color: u32 = res_color_temp.x | res_color_temp.y << 8u | res_color_temp.z << 16u | res_color_temp.w << 24u;
+    let res_color: u32 = res_color_temp[0] | res_color_temp[1] << 8u | res_color_temp[2] << 16u | res_color_temp[3] << 24u;
+    // let res_color: u32 = res_color_temp[3] | res_color_temp[2] << 8u | res_color_temp[1] << 16u | res_color_temp[0] << 24u;
     output_list.data[entity_index] = res_color;
 }

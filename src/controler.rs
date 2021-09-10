@@ -34,11 +34,11 @@ pub struct Controler {
 impl Controler {
     pub async fn new(window: &winit::window::Window) -> Self {
         let clip_rect = generate_clip_rect();
-        let instance = wgpu::Instance::new(wgpu::Backends::METAL);
+        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
+                power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
             })
             .await
@@ -60,7 +60,7 @@ impl Controler {
             format: surface_format,
             width: WINDOW_WIDHT,
             height: WINDOW_HEIGHT,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate,
         };
         surface.configure(&device, &surface_config);
 
