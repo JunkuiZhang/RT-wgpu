@@ -9,7 +9,7 @@ struct Panel {
     point1: vec4<f32>;
     normal: vec4<f32>;
     color: vec3<f32>;
-    _placholder: f32;
+    placholder: f32;
 };
 
 struct PixelData {
@@ -64,7 +64,7 @@ struct ConfigData {
     sphere_count: u32;
     panel_count: u32;
     light_count: u32;
-    _p: u32;
+    p: u32;
 };
 
 [[group(1), binding(3)]]

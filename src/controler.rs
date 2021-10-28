@@ -40,6 +40,7 @@ impl Controler {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .unwrap();
@@ -426,10 +427,9 @@ impl Controler {
     pub fn render(&mut self) {
         let surface_frame = self
             .surface
-            .get_current_frame()
+            .get_current_texture()
             .expect("Error get current frame");
         let view = surface_frame
-            .output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -510,5 +510,7 @@ impl Controler {
             );
         }
         self.queue.submit(Some(encoder.finish()));
+
+        surface_frame.present();
     }
 }
